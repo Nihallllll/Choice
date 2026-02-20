@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BYOK Demo App</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif;
+      background: #f9fafb;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+    .container { width: 100%; max-width: 640px; }
+    h1 { font-size: 1.5rem; color: #111; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 0.875rem; margin-bottom: 24px; }
+
+    .topbar {
+      display: flex; justify-content: space-between;
+      align-items: center; margin-bottom: 24px;
+    }
+    .settings-btn {
+      padding: 7px 14px; background: #f3f4f6;
+      border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-size: 0.82rem; cursor: pointer; color: #444;
+    }
+    .settings-btn:hover { background: #e5e7eb; }
+
+    .provider-badge {
+      font-size: 0.75rem; color: #6366f1;
+      background: #eef2ff; padding: 4px 10px;
+      border-radius: 20px; font-weight: 600;
+    }
+
+    .chat-box {
+      background: white; border: 1.5px solid #e5e7eb;
+      border-radius: 12px; padding: 20px;
+      min-height: 300px; max-height: 500px;
+      overflow-y: auto;
+      display: flex; flex-direction: column; gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .msg { padding: 10px 14px; border-radius: 10px; max-width: 85%; }
+    .msg.user {
+      background: #6366f1; color: white;
+      align-self: flex-end; border-bottom-right-radius: 3px;
+    }
+    .msg.assistant {
+      background: #f3f4f6; color: #111;
+      align-self: flex-start; border-bottom-left-radius: 3px;
+    }
+    .msg.error { background: #fef2f2; color: #dc2626; align-self: center; font-size: 0.85rem; }
+
+    .input-row { display: flex; gap: 10px; }
+    input[type="text"] {
+      flex: 1; padding: 10px 14px;
+      border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-size: 0.9rem; outline: none;
+    }
+    input:focus { border-color: #6366f1; }
+    button.send {
+      padding: 10px 20px; background: #6366f1; color: white;
+      border: none; border-radius: 8px; cursor: pointer;
+      font-size: 0.9rem; font-weight: 600;
+    }
+    button.send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .empty-state {
+      color: #999; font-size: 0.875rem;
+      text-align: center; padding: 60px 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="topbar">
+    <div>
+      <h1>BYOK Demo</h1>
+      <div class="subtitle">Using your own API key</div>
+    </div>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <div class="provider-badge" id="provider-badge">Not configured</div>
+      <button class="settings-btn" id="settings-btn">⚙️ Settings</button>
+    </div>
+  </div>
+
+  <div class="chat-box" id="chat-box">
+    <div class="empty-state">Send a message to get started.</div>
+  </div>
+
+  <div class="input-row">
+    <input type="text" id="input" placeholder="Type a message..." />
+    <button class="send" id="send-btn">Send</button>
+  </div>
+</div>
+
+<!--
+  In a real project built with a bundler (Vite, webpack etc.) you would:
+    import { createBYOK, PROVIDERS } from '@byok/frontend';
+
+  For this demo we inline equivalent logic directly.
+  The SettingsUI web component is registered below.
+-->
+<script type="module">
+  // ── Inline KeyManager (what @byok/frontend exports) ──────────────────────
+  class KeyManager {
+    constructor(projectId) { this.key = `byok_${projectId}`; }
+    load() { try { return JSON.parse(localStorage.getItem(this.key)) || {}; } catch { return {}; } }
+    save(d) { localStorage.setItem(this.key, JSON.stringify(d)); }
+    getActiveProvider() { return this.load().activeProvider ?? null; }
+    setActiveProvider(id) { this.save({ ...this.load(), activeProvider: id }); }
+    getActiveModel() { return this.load().activeModel ?? null; }
+    setActiveModel(m) { this.save({ ...this.load(), activeModel: m }); }
+    getKey(id) { return this.load().keys?.[id] ?? null; }
+    setKey(id, k) { const d = this.load(); d.keys = { ...(d.keys || {}), [id]: k }; this.save(d); }
+    isConfigured() { const d = this.load(); return !!(d.activeProvider && d.keys?.[d.activeProvider]); }
+  }
+
+  // ── Config ────────────────────────────────────────────────────────────────
+  const PROVIDERS = [
+    {
+      id: "openai", label: "OpenAI", keyLabel: "OpenAI API Key",
+      keyPlaceholder: "sk-...",
+      docsUrl: "https://platform.openai.com/api-keys",
+      docsInstructions: "Sign up → API Keys → Create new secret key",
+      modelOptions: ["gpt-4o-mini", "gpt-4o", "gpt-3.5-turbo"],
+      defaultModel: "gpt-4o-mini",
+      validateKey: k => k.startsWith("sk-") && k.length > 20,
+    },
+    {
+      id: "gemini", label: "Google Gemini", keyLabel: "Gemini API Key",
+      keyPlaceholder: "AIza...",
+      docsUrl: "https://aistudio.google.com/app/apikey",
+      docsInstructions: "Google AI Studio → Get API Key",
+      modelOptions: ["gemini/gemini-2.5-flash", "gemini/gemini-1.5-pro"],
+      defaultModel: "gemini/gemini-2.0-flash",
+      validateKey: k => k.startsWith("AIza") && k.length > 20,
+    },
+    {
+      id: "groq", label: "Groq (Free tier!)", keyLabel: "Groq API Key",
+      keyPlaceholder: "gsk_...",
+      docsUrl: "https://console.groq.com/keys",
+      docsInstructions: "console.groq.com → API Keys → Create API Key (free tier available!)",
+      modelOptions: ["groq/llama-3.1-8b-instant", "groq/llama-3.2-11b-text-preview", "groq/llama-3.2-90b-text-preview", "groq/mixtral-8x7b-32768"],
+      defaultModel: "groq/llama-3.1-8b-instant",
+      validateKey: k => k.startsWith("gsk_") && k.length > 20,
+    },
+  ];
+
+  const km = new KeyManager("demo-app");
+  const BACKEND = "http://localhost:3001";
+
+  // ── Settings modal ────────────────────────────────────────────────────────
+  function openSettings(isFirstRun = false) {
+    const existing = document.getElementById("byok-overlay");
+    if (existing) existing.remove();
+
+    const overlay = document.createElement("div");
+    overlay.id = "byok-overlay";
+    overlay.style.cssText =
+      "position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);" +
+      "display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif";
+
+    const activeProvider = km.getActiveProvider() ?? PROVIDERS[0].id;
+
+    overlay.innerHTML = `
+      <div style="background:#fff;border-radius:12px;padding:28px 32px;width:480px;max-width:95vw;box-shadow:0 20px 60px rgba(0,0,0,.2)">
+        <h2 style="margin:0 0 4px;font-size:1.2rem">Configure AI Provider</h2>
+        <p style="color:#666;font-size:.875rem;margin:0 0 20px">Your keys are stored locally and never sent to our servers.</p>
+        ${isFirstRun ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px 14px;font-size:.82rem;color:#1e40af;margin-bottom:16px">👋 Welcome! Add your API key to get started.</div>` : ""}
+        <label style="display:block;font-size:.8rem;font-weight:600;color:#333;margin-bottom:6px">Provider</label>
+        <select id="byok-provider" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:.9rem;outline:none">
+          ${PROVIDERS.map(p => `<option value="${p.id}" ${p.id === activeProvider ? "selected" : ""}>${p.label}</option>`).join("")}
+        </select>
+        ${PROVIDERS.map(p => `
+          <div id="section-${p.id}" style="display:${p.id === activeProvider ? "block" : "none"}">
+            <label style="display:block;font-size:.8rem;font-weight:600;color:#333;margin:14px 0 6px">${p.keyLabel}</label>
+            <input type="password" id="key-${p.id}" placeholder="${p.keyPlaceholder}" value="${km.getKey(p.id) ?? ""}"
+              style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:.9rem;outline:none"/>
+            <a href="${p.docsUrl}" target="_blank" style="font-size:.78rem;color:#6366f1;display:inline-block;margin-top:6px">How to get your key →</a>
+            <p style="font-size:.78rem;color:#666;background:#f8f9fa;border-radius:6px;padding:8px 10px;margin-top:8px">${p.docsInstructions}</p>
+            <label style="display:block;font-size:.8rem;font-weight:600;color:#333;margin:12px 0 6px">Model</label>
+            <select id="model-${p.id}" style="width:100%;padding:9px 12px;border:1.5px solid #d1d5db;border-radius:8px;font-size:.9rem">
+              ${p.modelOptions.map(m => `<option value="${m}" ${m === (km.getActiveModel() ?? p.defaultModel) ? "selected" : ""}>${m}</option>`).join("")}
+            </select>
+          </div>
+        `).join("")}
+        <div id="byok-error" style="color:#dc2626;font-size:.8rem;margin-top:6px;min-height:18px"></div>
+        <div style="display:flex;gap:10px;margin-top:20px;justify-content:flex-end">
+          ${!isFirstRun ? `<button id="byok-cancel" style="padding:9px 20px;border-radius:8px;background:#f3f4f6;border:none;cursor:pointer;font-weight:600">Cancel</button>` : ""}
+          <button id="byok-save" style="padding:9px 20px;border-radius:8px;background:#6366f1;color:#fff;border:none;cursor:pointer;font-weight:600">Save & Continue</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    document.getElementById("byok-provider").addEventListener("change", e => {
+      PROVIDERS.forEach(p => {
+        document.getElementById(`section-${p.id}`).style.display = p.id === e.target.value ? "block" : "none";
+      });
+    });
+
+    document.getElementById("byok-cancel")?.addEventListener("click", () => overlay.remove());
+
+    document.getElementById("byok-save").addEventListener("click", () => {
+      const pid = document.getElementById("byok-provider").value;
+      const key = document.getElementById(`key-${pid}`).value.trim();
+      const model = document.getElementById(`model-${pid}`).value;
+      const provider = PROVIDERS.find(p => p.id === pid);
+      const errEl = document.getElementById("byok-error");
+
+      if (!key) { errEl.textContent = "Please enter your API key."; return; }
+      if (!provider.validateKey(key)) { errEl.textContent = `Invalid ${provider.label} key format.`; return; }
+
+      km.setActiveProvider(pid);
+      km.setKey(pid, key);
+      km.setActiveModel(model);
+      overlay.remove();
+      updateBadge();
+    });
+  }
+
+  function updateBadge() {
+    const pid = km.getActiveProvider();
+    const p = PROVIDERS.find(x => x.id === pid);
+    const badge = document.getElementById("provider-badge");
+    badge.textContent = p ? `${p.label} · ${km.getActiveModel() ?? p.defaultModel}` : "Not configured";
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+  const chatBox = document.getElementById("chat-box");
+  const input = document.getElementById("input");
+  const sendBtn = document.getElementById("send-btn");
+
+  function addMsg(role, text) {
+    const empty = chatBox.querySelector(".empty-state");
+    if (empty) empty.remove();
+    const div = document.createElement("div");
+    div.className = `msg ${role}`;
+    div.textContent = text;
+    chatBox.appendChild(div);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return div;
+  }
+
+  async function sendMessage() {
+    const text = input.value.trim();
+    if (!text) return;
+
+    if (!km.isConfigured()) {
+      openSettings(true);
+      return;
+    }
+
+    const provider = km.getActiveProvider();
+    const apiKey = km.getKey(provider);
+    const model = km.getActiveModel();
+
+    input.value = "";
+    sendBtn.disabled = true;
+    addMsg("user", text);
+    const thinkingDiv = addMsg("assistant", "…");
+
+    try {
+      const res = await fetch(`${BACKEND}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // Frontend library sends these — backend byokMiddleware reads them
+          "X-BYOK-Provider": provider,
+        },
+        body: JSON.stringify({
+          message: text,
+          model,
+          api_key: apiKey,  // LiteLLM clientside_credentials pattern
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message ?? "Request failed");
+
+      thinkingDiv.textContent = data.response;
+    } catch (err) {
+      thinkingDiv.className = "msg error";
+      thinkingDiv.textContent = `Error: ${err.message}`;
+    } finally {
+      sendBtn.disabled = false;
+      input.focus();
+    }
+  }
+
+  document.getElementById("settings-btn").addEventListener("click", () => openSettings(false));
+  sendBtn.addEventListener("click", sendMessage);
+  input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(); });
+
+  // ── First run guard ───────────────────────────────────────────────────────
+  updateBadge();
+  if (!km.isConfigured()) {
+    openSettings(true);
+  }
+</script>
+</body>
+</html>

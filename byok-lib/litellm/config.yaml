@@ -1,0 +1,98 @@
+# LiteLLM Proxy Config
+# This enables the "clientside_credentials" feature:
+# users pass their own api_key in the request body, and LiteLLM
+# uses that key to call the actual provider.
+#
+# Each model entry uses a placeholder api_key — the real key comes
+# from the request body (api_key field) at call time.
+
+model_list:
+  # ── OpenAI ──────────────────────────────────────────────────────
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: "os.environ/OPENAI_API_KEY_PLACEHOLDER"  # overridden per-request
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: "os.environ/OPENAI_API_KEY_PLACEHOLDER"
+
+  - model_name: gpt-4-turbo
+    litellm_params:
+      model: openai/gpt-4-turbo
+      api_key: "os.environ/OPENAI_API_KEY_PLACEHOLDER"
+
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_key: "os.environ/OPENAI_API_KEY_PLACEHOLDER"
+
+  # ── Google Gemini ────────────────────────────────────────────────
+  - model_name: gemini/gemini-2.0-flash
+    litellm_params:
+      model: gemini/gemini-2.0-flash
+      api_key: "os.environ/GEMINI_API_KEY_PLACEHOLDER"
+
+  - model_name: gemini/gemini-1.5-pro
+    litellm_params:
+      model: gemini/gemini-1.5-pro
+      api_key: "os.environ/GEMINI_API_KEY_PLACEHOLDER"
+
+  - model_name: gemini/gemini-1.5-flash
+    litellm_params:
+      model: gemini/gemini-1.5-flash
+      api_key: "os.environ/GEMINI_API_KEY_PLACEHOLDER"
+
+  # ── Anthropic ────────────────────────────────────────────────────
+  - model_name: anthropic/claude-sonnet-4-5
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5
+      api_key: "os.environ/ANTHROPIC_API_KEY_PLACEHOLDER"
+
+  - model_name: anthropic/claude-haiku-3-5
+    litellm_params:
+      model: anthropic/claude-haiku-3-5
+      api_key: "os.environ/ANTHROPIC_API_KEY_PLACEHOLDER"
+
+  - model_name: anthropic/claude-opus-4
+    litellm_params:
+      model: anthropic/claude-opus-4
+      api_key: "os.environ/ANTHROPIC_API_KEY_PLACEHOLDER"
+
+  # ── Groq ─────────────────────────────────────────────────────────
+  - model_name: groq/llama-3.1-8b-instant
+    litellm_params:
+      model: groq/llama-3.1-8b-instant
+      api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
+
+  - model_name: groq/llama-3.2-11b-text-preview
+    litellm_params:
+      model: groq/llama-3.2-11b-text-preview
+      api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
+
+  - model_name: groq/llama-3.2-90b-text-preview
+    litellm_params:
+      model: groq/llama-3.2-90b-text-preview
+      api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
+
+  - model_name: groq/mixtral-8x7b-32768
+    litellm_params:
+      model: groq/mixtral-8x7b-32768
+      api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
+
+litellm_settings:
+  # Allow users to pass their own api_key in the request body.
+  # When a request includes api_key in the body, LiteLLM uses THAT key
+  # instead of the server's configured key. This is the core BYOK feature.
+  drop_params: true      # silently drop unsupported params per provider
+  set_verbose: false
+
+general_settings:
+  # The master key is just for authenticating to the proxy itself.
+  # It does NOT get sent to the actual LLM providers.
+  master_key: "os.environ/LITELLM_MASTER_KEY"
+  allow_user_auth: false  # we handle auth ourselves
+
+  # CORS — allow requests from your frontend
+  allow_requests_on_db_unavailable: true
