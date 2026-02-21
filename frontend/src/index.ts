@@ -95,8 +95,9 @@ export const PROVIDERS = {
     docsInstructions:
       "1. Go to Google AI Studio<br>2. Click 'Get API Key'<br>3. Create a key in a new or existing project<br>4. Copy and paste it above.",
     modelOptions: [
-      "gemini/gemini-2.5-flash",
-      "gemini/gemini-2.5-pro",
+      "gemini/gemini-2.0-flash",
+      "gemini/gemini-1.5-pro",
+      "gemini/gemini-1.5-flash",
     ],
     defaultModel: "gemini/gemini-2.0-flash",
     validateKey: (key: string) => key.startsWith("AIza") && key.length > 20,
@@ -126,14 +127,11 @@ export const PROVIDERS = {
     docsInstructions:
       "1. Sign up at console.groq.com<br>2. Go to API Keys<br>3. Click 'Create API Key'<br>4. Copy and paste it above. Groq offers a free tier!",
     modelOptions: [
-      "groq/llama-3.3-70b-versatile",
+      "groq/llama-3.1-70b-versatile",
       "groq/llama-3.1-8b-instant",
-      "groq/compound",
-      "groq/openai/gpt-oss-120b",
-      "groq/openai/gpt-oss-20b",
-      "groq/qwen/qwen3-32b",
+      "groq/mixtral-8x7b-32768",
     ],
-    defaultModel: "groq/llama-3.3-70b-versatile",
+    defaultModel: "groq/llama-3.1-70b-versatile",
     validateKey: (key: string) => key.startsWith("gsk_") && key.length > 20,
   },
 };

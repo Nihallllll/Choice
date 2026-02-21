@@ -61,24 +61,34 @@ model_list:
       api_key: "os.environ/ANTHROPIC_API_KEY_PLACEHOLDER"
 
   # ── Groq ─────────────────────────────────────────────────────────
+  - model_name: groq/llama-3.3-70b-versatile
+    litellm_params:
+      model: groq/llama-3.3-70b-versatile
+      api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
+
   - model_name: groq/llama-3.1-8b-instant
     litellm_params:
       model: groq/llama-3.1-8b-instant
       api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
 
-  - model_name: groq/llama-3.2-11b-text-preview
+  - model_name: groq/compound
     litellm_params:
-      model: groq/llama-3.2-11b-text-preview
+      model: groq/compound
       api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
 
-  - model_name: groq/llama-3.2-90b-text-preview
+  - model_name: groq/openai/gpt-oss-120b
     litellm_params:
-      model: groq/llama-3.2-90b-text-preview
+      model: groq/openai/gpt-oss-120b
       api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
 
-  - model_name: groq/mixtral-8x7b-32768
+  - model_name: groq/openai/gpt-oss-20b
     litellm_params:
-      model: groq/mixtral-8x7b-32768
+      model: groq/openai/gpt-oss-20b
+      api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
+
+  - model_name: groq/qwen/qwen3-32b
+    litellm_params:
+      model: groq/qwen/qwen3-32b
       api_key: "os.environ/GROQ_API_KEY_PLACEHOLDER"
 
 litellm_settings:
@@ -92,7 +102,9 @@ general_settings:
   # The master key is just for authenticating to the proxy itself.
   # It does NOT get sent to the actual LLM providers.
   master_key: "os.environ/LITELLM_MASTER_KEY"
-  allow_user_auth: false  # we handle auth ourselves
-
-  # CORS — allow requests from your frontend
-  allow_requests_on_db_unavailable: true
+  
+  # Disable user authentication - we don't need per-user tracking
+  allow_user_auth: false
+  
+  # Disable database requirement
+  database_url: null

@@ -1,0 +1,23 @@
+{
+  "name": "frontend",
+  "module": "index.ts",
+  "type": "module",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.3.0",
+    "ts-node": "^10.9.2",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.26",
+    "@langchain/openai": "^1.2.8",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}

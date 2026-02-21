@@ -85,7 +85,7 @@ export class LLMFactory {
       openai: "gpt-4o-mini",
       gemini: "gemini/gemini-2.0-flash",
       anthropic: "anthropic/claude-haiku-3-5",
-      groq: "groq/llama-3.1-8b-instant",
+      groq: "groq/llama-3.3-70b-versatile",
     };
     return defaults[provider] ?? "gpt-4o-mini";
   }

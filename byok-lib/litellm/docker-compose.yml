@@ -1,3 +1,13 @@
+# ⚠️ DEPRECATED - Use direct installation instead
+# This Docker setup is 5GB+ and no longer recommended.
+#
+# Instead, install LiteLLM directly:
+#   pip install 'litellm[proxy]'
+#   .\start-proxy.ps1    # Windows
+#   ./start-proxy.sh     # Linux/Mac
+#
+# Only use this if you specifically need Docker for some reason.
+
 version: "3.8"
 
 services:
