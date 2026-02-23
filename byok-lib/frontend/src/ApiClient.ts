@@ -10,13 +10,44 @@ export class ApiClient {
     this.keyManager = keyManager;
   }
 
-  /**
-   * Core method: sends a chat completion request to LiteLLM proxy,
-   * automatically injecting the user's stored API key via extra_body.
-   *
-   * LiteLLM's clientside_credentials feature reads api_key from the
-   * request body and uses it to call the actual LLM provider.
-   */
+  private getActiveKeyAndProvider(): { provider: string; userApiKey: string } {
+    const provider = this.keyManager.getActiveProvider();
+    const userApiKey = provider ? this.keyManager.getKey(provider) : null;
+    if (!userApiKey || !provider) {
+      throw new Error("NO_API_KEY_CONFIGURED");
+    }
+    return { provider, userApiKey };
+  }
+
+  private getBaseUrl(): string {
+    if (this.config.backendUrl) {
+      return this.config.backendUrl.replace(/\/$/, "");
+    }
+    if (this.config.litellmProxyUrl) {
+      return this.config.litellmProxyUrl.replace(/\/$/, "");
+    }
+    throw new Error("Either backendUrl or litellmProxyUrl must be set in BYOKConfig.");
+  }
+
+  private buildHeaders(provider: string, userApiKey: string): HeadersInit {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-BYOK-Provider": provider,
+      "X-BYOK-Api-Key": userApiKey,
+    };
+    if (!this.config.backendUrl && this.config.litellmMasterKey) {
+      headers["Authorization"] = `Bearer ${this.config.litellmMasterKey}`;
+    }
+    return headers;
+  }
+
+  private getDefaultModel(): string {
+    const providerId = this.keyManager.getActiveProvider();
+    if (!providerId) return "gpt-4o-mini";
+    const provider = this.config.providers.find((p) => p.id === providerId);
+    return provider?.defaultModel ?? "gpt-4o-mini";
+  }
+
   async chatCompletion(
     messages: Array<{ role: string; content: string }>,
     options: {
@@ -27,98 +58,71 @@ export class ApiClient {
       [key: string]: unknown;
     } = {}
   ): Promise<Response> {
-    const provider = this.keyManager.getActiveProvider();
-    const userApiKey = provider ? this.keyManager.getKey(provider) : null;
+    const { provider, userApiKey } = this.getActiveKeyAndProvider();
     const model =
       options.model ??
       this.keyManager.getActiveModel() ??
       this.getDefaultModel();
 
-    if (!userApiKey || !provider) {
-      throw new Error("NO_API_KEY_CONFIGURED");
-    }
-
     const { model: _model, ...rest } = options;
 
-    const body = {
+    const body: Record<string, unknown> = {
       model,
       messages,
       ...rest,
-      // This is the LiteLLM clientside_credentials pattern:
-      // LiteLLM proxy reads `api_key` from body and uses it
-      // to call the actual provider instead of its own server key.
-      api_key: userApiKey,
     };
 
-    const response = await fetch(
-      `${this.config.litellmProxyUrl}/v1/chat/completions`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // This authenticates to the LiteLLM proxy itself (the master key)
-          Authorization: `Bearer ${this.config.litellmMasterKey}`,
-          // We also send the provider so the backend can route correctly
-          "X-BYOK-Provider": provider,
-        },
-        body: JSON.stringify(body),
-      }
-    );
+    if (!this.config.backendUrl) {
+      body["api_key"] = userApiKey;
+    }
+
+    const endpoint = this.config.backendUrl
+      ? `${this.getBaseUrl()}/api/chat`
+      : `${this.getBaseUrl()}/v1/chat/completions`;
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: this.buildHeaders(provider, userApiKey),
+      body: JSON.stringify(body),
+    });
 
     if (!response.ok) {
       const err = await response.json().catch(() => ({}));
       throw new Error(
         (err as { error?: { message?: string } })?.error?.message ??
-          `LiteLLM request failed: ${response.status}`
+          `Request failed: ${response.status} ${response.statusText}`
       );
     }
 
     return response;
   }
 
-  /**
-   * Convenience method that returns the parsed content string directly.
-   */
   async chat(
     messages: Array<{ role: string; content: string }>,
     options?: Parameters<typeof this.chatCompletion>[1]
   ): Promise<string> {
     const response = await this.chatCompletion(messages, options);
     const data = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>;
+      choices?: Array<{ message: { content: string } }>;
+      response?: string;
     };
-    return data.choices[0]?.message?.content ?? "";
+    return data.choices?.[0]?.message?.content ?? (data.response as string) ?? "";
   }
 
-  private getDefaultModel(): string {
-    const providerId = this.keyManager.getActiveProvider();
-    if (!providerId) return "gpt-4o-mini";
-    const provider = this.config.providers.find((p) => p.id === providerId);
-    return provider?.defaultModel ?? "gpt-4o-mini";
-  }
-
-  /**
-   * Generic passthrough: call any LiteLLM proxy endpoint with the user's
-   * key automatically injected. Useful for embeddings, image gen, etc.
-   */
   async request(
     endpoint: string,
     body: Record<string, unknown>,
     method = "POST"
   ): Promise<Response> {
-    const provider = this.keyManager.getActiveProvider();
-    const userApiKey = provider ? this.keyManager.getKey(provider) : null;
+    const { provider, userApiKey } = this.getActiveKeyAndProvider();
+    const fullBody = this.config.backendUrl
+      ? body
+      : { ...body, api_key: userApiKey };
 
-    if (!userApiKey) throw new Error("NO_API_KEY_CONFIGURED");
-
-    return fetch(`${this.config.litellmProxyUrl}${endpoint}`, {
+    return fetch(`${this.getBaseUrl()}${endpoint}`, {
       method,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.config.litellmMasterKey}`,
-        "X-BYOK-Provider": provider ?? "",
-      },
-      body: JSON.stringify({ ...body, api_key: userApiKey }),
+      headers: this.buildHeaders(provider, userApiKey),
+      body: JSON.stringify(fullBody),
     });
   }
 }

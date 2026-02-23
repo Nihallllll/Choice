@@ -21,10 +21,9 @@ byok-lib/
 
 ## Step 1 — Start the LiteLLM Proxy
 
-```bash
-# Install LiteLLM (one-time setup)
-pip install 'litellm[proxy]'
+Dependencies are managed with [uv](https://docs.astral.sh/uv/). Run `uv sync` inside `litellm/` once to install.
 
+```powershell
 # Windows PowerShell
 cd litellm
 $env:LITELLM_MASTER_KEY = "sk-master-1234"
@@ -32,23 +31,18 @@ $env:OPENAI_API_KEY_PLACEHOLDER = "placeholder"
 $env:GEMINI_API_KEY_PLACEHOLDER = "placeholder"
 $env:ANTHROPIC_API_KEY_PLACEHOLDER = "placeholder"
 $env:GROQ_API_KEY_PLACEHOLDER = "placeholder"
-python -m litellm --config config.yaml --port 4000
+uv run litellm --config config.yaml --port 4000
+```
 
-# OR Linux/Mac
+```bash
+# Linux/Mac
+cd litellm
 export LITELLM_MASTER_KEY="sk-master-1234"
 export OPENAI_API_KEY_PLACEHOLDER="placeholder"
 export GEMINI_API_KEY_PLACEHOLDER="placeholder"
 export ANTHROPIC_API_KEY_PLACEHOLDER="placeholder"
 export GROQ_API_KEY_PLACEHOLDER="placeholder"
-python -m litellm --config config.yaml --port 4000
-```
-
-**Note:** If you get "No module named litellm.__main__", use the full path to litellm.exe:
-```powershell
-# Find where it's installed
-python -m pip show litellm | Select-String "Location"
-# Then run from Scripts folder, e.g:
-C:\Users\YourName\AppData\Local\Programs\Python\Python310\Scripts\litellm.exe --config config.yaml --port 4000
+uv run litellm --config config.yaml --port 4000
 ```
 
 Proxy will be running at `http://localhost:4000`.
@@ -96,7 +90,8 @@ app.post("/api/chat", byokMiddleware(), async (req, res) => {
 ### Run
 
 ```bash
-npx ts-node example-app/backend/server.ts
+cd example-app/backend
+npm run dev   # runs on :3001
 ```
 
 ---
@@ -109,13 +104,13 @@ npx ts-node example-app/backend/server.ts
 pip install -r backend-python/requirements.txt
 ```
 
-Copy `backend-python/byok_middleware.py` and `backend-python/llm_factory.py` into your project.
+Copy `backend-python/src/backend_python/` into your project.
 
 ### Integrate (3 lines of change)
 
 ```python
-from byok_middleware import BYOKMiddleware
-from llm_factory import get_llm_from_context
+from backend_python.byok_middleware import BYOKMiddleware
+from backend_python.llm_factory import get_llm_from_context
 
 app = FastAPI()
 app.add_middleware(BYOKMiddleware)  # ← one line
@@ -130,7 +125,8 @@ async def chat(body: ChatRequest):
 ### Run
 
 ```bash
-uvicorn example-app.backend.server_python:app --reload --port 3001
+cd example-app/backend
+py -3.10 -m uvicorn example-python:app --port 3002
 ```
 
 ---
@@ -211,10 +207,11 @@ console.log("✅ KeyManager tests passed");
 ```bash
 # Start LiteLLM proxy (keep this running)
 cd litellm
-python -m litellm --config config.yaml --port 4000
+uv run litellm --config config.yaml --port 4000
 
-# Start example server (in another terminal)
-npx ts-node example-app/backend/server.ts
+# Start example Node server (in another terminal)
+cd example-app/backend
+npm run dev
 
 # Test health (no auth required)
 curl http://localhost:3001/health
@@ -239,7 +236,8 @@ curl -X POST http://localhost:3001/api/chat \
 
 ```bash
 # Start Python server
-uvicorn example-app.backend.server_python:app --reload --port 3001
+cd example-app/backend
+py -3.10 -m uvicorn example-python:app --port 3002
 
 # Test
 curl -X POST http://localhost:3001/api/chat \

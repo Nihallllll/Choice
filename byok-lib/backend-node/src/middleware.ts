@@ -1,48 +1,40 @@
 import type { Request, Response, NextFunction } from "express";
+import { VALID_PROVIDERS, type BYOKRequest, type ProviderID } from "./types";
 
-/**
- * Express middleware — reads BYOK headers sent by the frontend library
- * and attaches them to `req.byok` for downstream use.
- *
- * Usage:
- *   app.use(byokMiddleware());
- *
- * Then in any route or LangChain pipeline:
- *   const { provider, apiKey } = req.byok;
- */
 export function byokMiddleware() {
   return (req: Request, res: Response, next: NextFunction): void => {
-    const provider = req.headers["x-byok-provider"] as string | undefined;
+    const provider = (req.headers["x-byok-provider"] as string | undefined)?.toLowerCase();
 
-    // The user's actual LLM provider key is sent in the request body (api_key field)
-    // for LiteLLM clientside_credentials. We also need it in middleware for
-    // direct LangChain usage (non-LiteLLM-proxy path).
-    //
-    // Strategy: read from body if present, otherwise try a dedicated header.
+    if (!provider || !(VALID_PROVIDERS as readonly string[]).includes(provider)) {
+      res.status(401).json({
+        error: {
+          message: `Invalid or missing provider. Must be one of: ${VALID_PROVIDERS.join(", ")}.`,
+          code: "INVALID_PROVIDER",
+        },
+      });
+      return;
+    }
+
     let apiKey: string | undefined;
-
-    if (req.body && typeof req.body === "object" && req.body.api_key) {
-      apiKey = req.body.api_key as string;
+    if (req.body && typeof req.body === "object" && typeof req.body.api_key === "string") {
+      apiKey = req.body.api_key;
     } else {
-      // Fallback: allow explicit header (useful for non-chat endpoints)
       apiKey = req.headers["x-byok-api-key"] as string | undefined;
     }
 
-    if (!provider || !apiKey) {
+    if (!apiKey || apiKey.trim().length === 0) {
       res.status(401).json({
         error: {
-          message:
-            "Missing API key configuration. Please configure your API key in the app settings.",
+          message: "Missing API key. Please configure your key in the app settings.",
           code: "NO_BYOK_KEY",
         },
       });
       return;
     }
 
-    // Attach to request so downstream handlers can use it
-    (req as Request & { byok: { provider: string; apiKey: string } }).byok = {
-      provider,
-      apiKey,
+    (req as BYOKRequest).byok = {
+      provider: provider as ProviderID,
+      apiKey: apiKey.trim(),
     };
 
     next();

@@ -1,14 +1,8 @@
 # Start LiteLLM Proxy without Docker
 # Run this script: .\start-proxy.ps1
 
-# Check if litellm is installed
-Write-Host "Checking LiteLLM installation..." -ForegroundColor Cyan
-$litellmCheck = py -3 -m pip show litellm 2>$null
-if (-not $litellmCheck) {
-    Write-Host "LiteLLM not found. Installing..." -ForegroundColor Yellow
-    py -3 -m pip install 'litellm[proxy]'
-    Write-Host ""
-}
+# litellm is managed via uv (pyproject.toml in this folder)
+# Run `uv add litellm` once if not yet installed
 
 # Set environment variables
 $env:LITELLM_MASTER_KEY = "sk-master-1234"
@@ -22,4 +16,4 @@ Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
 # Start LiteLLM proxy
-py -3 -m litellm --config config.yaml --port 4000
+uv run litellm --config config.yaml --port 4000

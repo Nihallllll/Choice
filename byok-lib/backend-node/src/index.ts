@@ -1,3 +1,4 @@
 export { byokMiddleware } from "./middleware";
 export { LLMFactory } from "./LLMFactory";
-export type { LLMFactoryOptions, BYOKRequest } from "./types";
+export { VALID_PROVIDERS } from "./types";
+export type { LLMFactoryOptions, BYOKRequest, CreateChatModelOptions, ProviderID } from "./types";

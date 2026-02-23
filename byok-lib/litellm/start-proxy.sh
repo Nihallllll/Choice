@@ -14,4 +14,4 @@ echo "Press Ctrl+C to stop"
 echo ""
 
 # Start LiteLLM proxy
-litellm --config config.yaml --port 4000
+uv run litellm --config config.yaml --port 4000
