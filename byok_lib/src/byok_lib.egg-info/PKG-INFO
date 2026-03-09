@@ -1,0 +1,138 @@
+Metadata-Version: 2.4
+Name: byok-lib
+Version: 0.1.0
+Summary: Bring Your Own Key — a lightweight library that lets users supply their own API keys. Frontend widget + backend helper.
+License: MIT
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: starlette>=0.27.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+Requires-Dist: httpx>=0.27; extra == "dev"
+Requires-Dist: uvicorn>=0.30; extra == "dev"
+
+# byok-lib — Bring Your Own Key
+
+A lightweight, callback-driven library that lets users supply their own LLM API keys. No extra proxy, no middleware backend — the library gives you a **frontend widget** to collect the key and a **one-function backend helper** to read it.
+
+```
+Frontend (your app)                          Backend (your app)
+┌──────────────────────┐                     ┌──────────────────────┐
+│  byok.getHeaders()   │ ──── your own ────> │  extract_byok(req)   │
+│  returns {           │      fetch()        │  returns {           │
+│    X-BYOK-Api-Key,   │                     │    api_key,          │
+│    X-BYOK-Provider,  │                     │    provider,         │
+│    X-BYOK-Model      │                     │    model             │
+│  }                   │                     │  }                   │
+└──────────────────────┘                     └──────────────────────┘
+         ↑ Widget stores key                          ↑ You use creds however you want
+         in localStorage                              (create Groq client, OpenAI, etc.)
+```
+
+## Python Backend — Quick Start
+
+### Install
+
+```bash
+pip install -e ./byok_lib          # local editable install
+# OR when published:
+# pip install byok-lib
+```
+
+### Option A: Per-route (recommended)
+
+```python
+from fastapi import FastAPI, Request
+from byok import extract_byok
+from groq import Groq
+
+app = FastAPI()
+
+@app.post("/api/chat")
+async def chat(request: Request):
+    creds = extract_byok(request)        # reads headers, raises 401 if missing
+    client = Groq(api_key=creds.api_key)  # YOUR client, YOUR choice
+    # creds.provider → "groq"
+    # creds.model    → "llama-3.3-70b-versatile" (or None)
+    response = client.chat.completions.create(...)
+    return {"answer": response.choices[0].message.content}
+```
+
+### Option B: Middleware (auto-protect all routes)
+
+```python
+from fastapi import FastAPI
+from byok import BYOKMiddleware, get_byok
+
+app = FastAPI()
+app.add_middleware(BYOKMiddleware)
+
+@app.post("/api/chat")
+async def chat():
+    creds = get_byok()            # already extracted by middleware
+    client = Groq(api_key=creds.api_key)
+    ...
+```
+
+## Frontend — Quick Start
+
+```ts
+import { createBYOK, PROVIDERS } from "@byok-lib/frontend";
+
+const byok = createBYOK({
+  projectId: "my-app",
+  providers: [PROVIDERS.groq, PROVIDERS.openai],
+});
+
+// Show settings modal on first visit (no key saved yet)
+await byok.guardFirstRun();
+
+// In your own fetch call — library just gives you the headers
+const res = await fetch("/api/chat", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    ...byok.getHeaders(),    // ← { X-BYOK-Api-Key, X-BYOK-Provider, X-BYOK-Model }
+  },
+  body: JSON.stringify({ message: "Hello" }),
+});
+```
+
+### Open settings manually (e.g. from a gear icon button)
+
+```ts
+byok.openSettings({
+  onSave: (provider, key, model) => {
+    console.log("User saved:", provider, model);
+  },
+});
+```
+
+## API Reference
+
+### Python
+
+| Export | What it does |
+|---|---|
+| `extract_byok(request)` | Reads BYOK headers → returns `BYOKCredentials`. Raises 401 if missing. |
+| `BYOKMiddleware` | Optional FastAPI middleware. Auto-extracts on every request. |
+| `get_byok()` | Retrieves credentials set by middleware (inside a route handler). |
+| `BYOKCredentials` | Dataclass with `.api_key`, `.provider`, `.model` fields. |
+
+### Frontend
+
+| Export | What it does |
+|---|---|
+| `createBYOK(config)` | Creates a BYOK instance. Returns `{ getHeaders, openSettings, guardFirstRun, keyManager }`. |
+| `getHeaders()` | Returns the 3 headers to spread into your fetch/axios. `null` if no key saved. |
+| `guardFirstRun()` | Opens modal if no key configured. Resolves when user saves. |
+| `openSettings(opts)` | Opens modal programmatically. `onSave` callback fires when user saves. |
+| `PROVIDERS` | Built-in presets for Groq, OpenAI, Gemini. |
+
+## Design Principles
+
+1. **No extra services.** No LiteLLM proxy, no middleware backend, nothing. Your existing `frontend + backend` stays `frontend + backend`.
+2. **Callback-driven.** The frontend widget collects a key and gives it back to YOUR code via `getHeaders()` or `onSave`. You decide what to do with it.
+3. **Framework agnostic.** Frontend works in React, Vue, Svelte, plain HTML. Backend works with FastAPI/Starlette.
+4. **Minimal API surface.** 4 Python exports. 5 frontend exports. Nothing else.
