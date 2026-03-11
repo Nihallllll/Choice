@@ -1,4 +1,5 @@
-from fastapi import Request, HTTPException
+from starlette.exceptions import HTTPException
+from starlette.requests import Request
 
 from ._types import BYOKCredentials
 

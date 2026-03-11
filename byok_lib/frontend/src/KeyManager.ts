@@ -42,8 +42,9 @@ export class KeyManager {
 
   /** Returns the key for the currently active provider, or null. */
   getActiveKey(): string | null {
-    const provider = this.getActiveProvider();
-    return provider ? this.getKey(provider) : null;
+    const data = this.load();
+    const provider = data.activeProvider;
+    return provider ? (data.keys?.[provider] ?? null) : null;
   }
 
   isConfigured(): boolean {

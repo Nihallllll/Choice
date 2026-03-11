@@ -8,7 +8,7 @@ from __future__ import annotations
 from contextvars import ContextVar
 from typing import Optional, Set
 
-from fastapi import HTTPException
+from starlette.exceptions import HTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
