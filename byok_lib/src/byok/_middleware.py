@@ -18,7 +18,7 @@ from ._extract import extract_byok
 
 _ctx: ContextVar[Optional[BYOKCredentials]] = ContextVar("byok_ctx", default=None)
 
-# Paths that should never require a BYOK key
+
 DEFAULT_SKIP_PATHS: Set[str] = {"/", "/health", "/docs", "/openapi.json", "/redoc"}
 
 

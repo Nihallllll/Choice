@@ -3,7 +3,7 @@ from starlette.requests import Request
 
 from ._types import BYOKCredentials
 
-# Header names (lowercase — HTTP headers are case-insensitive)
+
 _H_API_KEY = "x-byok-api-key"
 _H_PROVIDER = "x-byok-provider"
 _H_MODEL = "x-byok-model"
